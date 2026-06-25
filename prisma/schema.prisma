@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  CLUB_ADMIN
+  SUPER_ADMIN
+}
+
+enum RSVPStatus {
+  GOING
+  INTERESTED
+  NOT_GOING
+}
+
+enum LostItemStatus {
+  LOST
+  FOUND
+  CLAIMED
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+
+  // Clubs this user manages (only meaningful when role = CLUB_ADMIN)
+  adminOfClubs Club[] @relation("ClubAdmins")
+
+  // Many-to-many: which clubs this user follows (via join table)
+  followedClubs ClubFollow[]
+
+  // Many-to-many: which events this user has RSVP'd to (via join table)
+  eventRSVPs EventRSVP[]
+
+  // Events/Notices this user created (if they're a club admin)
+  eventsCreated Event[]  @relation("EventCreator")
+  noticesPosted Notice[] @relation("NoticeAuthor")
+
+  // Lost items reported by this user
+  lostItemsReported LostItem[]
+
+  // Notifications belonging to this user (one-to-many)
+  notifications Notification[]
+}
+
+model Club {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Users who administer this club (many-to-many)
+  admins User[] @relation("ClubAdmins")
+
+  // Users following this club (via join table)
+  followers ClubFollow[]
+
+  events  Event[]
+  notices Notice[]
+}
+
+// Join table resolving the many-to-many User <-> Club "follow" relationship
+model ClubFollow {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  club       Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  clubId     Int
+  followedAt DateTime @default(now())
+
+  @@unique([userId, clubId]) // prevents a user from following the same club twice
+}
+
+model Event {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  location    String?
+  startTime   DateTime
+  endTime     DateTime?
+  createdAt   DateTime  @default(now())
+
+  // Each event belongs to one club
+  club   Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  clubId Int
+
+  // The user (club admin) who created this event
+  creator   User @relation("EventCreator", fields: [creatorId], references: [id])
+  creatorId Int
+
+  // Users who RSVP'd to this event (via join table)
+  rsvps EventRSVP[]
+}
+
+// Join table resolving the many-to-many User <-> Event "RSVP" relationship
+model EventRSVP {
+  id      Int        @id @default(autoincrement())
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  Int
+  event   Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId Int
+  status  RSVPStatus @default(GOING)
+  rsvpAt  DateTime   @default(now())
+
+  @@unique([userId, eventId]) // one RSVP per user per event
+}
+
+model Notice {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  // Notice may be tied to a specific club, or be campus-wide (nullable)
+  club   Club? @relation(fields: [clubId], references: [id])
+  clubId Int?
+
+  // The user who authored/posted this notice
+  author   User @relation("NoticeAuthor", fields: [authorId], references: [id])
+  authorId Int
+}
+
+model LostItem {
+  id          Int            @id @default(autoincrement())
+  itemName    String
+  description String?
+  location    String?
+  status      LostItemStatus @default(LOST)
+  createdAt   DateTime       @default(now())
+
+  // The user who reported this lost/found item
+  reportedBy   User @relation(fields: [reportedById], references: [id])
+  reportedById Int
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Every notification belongs to exactly one user
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+}
