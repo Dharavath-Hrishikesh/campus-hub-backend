@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { sendNotification } = require('../utils/notificationService');
 
 // @desc   Create a notice (global if clubId is omitted, club-specific if provided)
 // @route  POST /api/notices
@@ -50,6 +51,18 @@ exports.createNotice = async (req, res) => {
         author: { select: { id: true, name: true, role: true } },
       },
     });
+    // Push the notice through the dual-layer engine
+    if (clubId) {
+      await sendNotification({
+        clubId: Number(clubId),
+        message: `New notice from ${club.name}: ${title}`,
+      });
+    } else {
+      await sendNotification({
+        isGlobal: true,
+        message: `New campus-wide notice: ${title}`,
+      });
+    }
 
     res.status(201).json(notice);
   } catch (error) {

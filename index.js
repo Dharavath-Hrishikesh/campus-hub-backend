@@ -1,3 +1,5 @@
+const http = require('http');
+const { initializeSocket } = require('./config/socket');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -26,7 +28,10 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Campus Hub API is running' });
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+initializeSocket(server);
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
