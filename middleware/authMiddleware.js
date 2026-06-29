@@ -12,6 +12,11 @@ exports.protect = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Fail fast here instead of letting a malformed token reach Prisma as undefined
+    if (!decoded.id) {
+      return res.status(401).json({ message: 'Token payload is missing a valid user id' });
+    }
+
     // decoded contains { id, role, iat, exp }
     req.user = decoded;
     next();

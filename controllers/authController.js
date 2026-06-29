@@ -5,9 +5,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
-// Helper to sign a JWT containing the user's id and role
-const generateToken = (userId, role) => {
-  return jwt.sign({ id: userId, role }, process.env.JWT_SECRET, {
+// Single contract: generateToken always takes the full user object.
+const generateToken = (user) => {
+  return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 };
@@ -38,7 +38,7 @@ exports.register = async (req, res) => {
       },
     });
 
-    const token = generateToken(newUser.id, newUser.role);
+    const token = generateToken(newUser);
 
     res.status(201).json({
       token,
@@ -74,7 +74,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const token = generateToken(user.id, user.role);
+    const token = generateToken(user);
 
     res.status(200).json({
       token,

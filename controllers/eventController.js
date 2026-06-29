@@ -72,36 +72,50 @@ exports.getAllEvents = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch events', error: error.message });
   }
 };
-
-// @desc   RSVP to an event (creates or updates the user's RSVP status)
+  // @desc   RSVP to an event (creates or updates the user's RSVP status)
 // @route  POST /api/events/:id/rsvp
 exports.rsvpToEvent = async (req, res) => {
   try {
+    console.log("--- 1. RSVP REQUEST INITIATED ---");
+    
     const eventId = Number(req.params.id);
-    const userId = req.user.id;
-    const { status } = req.body; // GOING | INTERESTED | NOT_GOING
+    const userId = Number(req.user.id); // Defensive Cast added here!
+
+    console.log("--- 2. IDs EXTRACTED ---", { eventId, userId });
+
+    if (isNaN(eventId) || isNaN(userId)) {
+      console.log("ERROR: One of the IDs is NaN (Not a Number)");
+      return res.status(400).json({ message: 'Invalid User or Event ID' });
+    }
 
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
+      console.log("ERROR: Event not found in Database");
       return res.status(404).json({ message: 'Event not found' });
     }
 
+    console.log("--- 3. EVENT FOUND. ATTEMPTING PRISMA UPSERT ---");
+
     const rsvp = await prisma.eventRSVP.upsert({
       where: {
-        userId_eventId: { userId, eventId }, // composite key from @@unique([userId, eventId])
+        userId_eventId: { userId, eventId }, 
       },
       update: {
-        status: status || 'GOING',
+        status: 'GOING',
       },
       create: {
         userId,
         eventId,
-        status: status || 'GOING',
+        status: 'GOING',
       },
     });
 
+    console.log("--- 4. RSVP SUCCESS! ---");
     res.status(200).json(rsvp);
+
   } catch (error) {
+    console.log("--- 🚨 FATAL PRISMA CRASH 🚨 ---");
+    console.error(error); // This prints the exact reason why Prisma is failing
     res.status(500).json({ message: 'Failed to RSVP to event', error: error.message });
   }
 };
