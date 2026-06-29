@@ -80,3 +80,25 @@ exports.getAllLostItems = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch lost items', error: error.message });
   }
 };
+
+// NEW: Delete a lost item (Marking it as found/resolved)
+ // @desc   Delete a lost item by ID
+// @route  DELETE /api/lost-items/:id
+exports.deleteLostItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Tell Prisma to delete the item with this specific ID
+    await prisma.lostItem.delete({
+      where: { 
+        // FIX: We wrap 'id' in parseInt() to convert the String to an Integer!
+        id: parseInt(id) 
+      }
+    });
+
+    res.status(200).json({ message: 'Item successfully marked as found and deleted.' });
+  } catch (error) {
+    console.error("Error deleting lost item:", error);
+    res.status(500).json({ message: 'Server error while deleting item.', error: error.message });
+  }
+};
